@@ -1,0 +1,46 @@
+# ═══════════════════════════════════════════════════════════
+#  Doni-Doni Backend — Profil PROD
+# ═══════════════════════════════════════════════════════════
+# Active : TwilioSmsService (envoi SMS réel via Twilio)
+
+spring:
+  profiles:
+    active: prod
+
+  # Redis cluster/sentinel en production
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  # Base de données prod
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  # JPA prod
+  jpa:
+    show-sql: false
+
+# ── Twilio SMS ─────────────────────────────────────────────
+twilio:
+  account-sid: ${TWILIO_ACCOUNT_SID}
+  auth-token: ${TWILIO_AUTH_TOKEN}
+  from-number: ${TWILIO_FROM_NUMBER}
+
+# ── OTP plus restrictif en prod ────────────────────────────
+otp:
+  length: 6
+  ttl-seconds: 180
+  max-attempts: 3
+  rate-limit-max-send: 2
+  rate-limit-window-seconds: 600
+
+# ── Logging structuré ──────────────────────────────────────
+logging:
+  level:
+    root: WARN
+    com.donidoni: INFO
+    org.keycloak: WARN

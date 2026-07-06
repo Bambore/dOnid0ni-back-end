@@ -1,0 +1,111 @@
+# ═══════════════════════════════════════════════════════════
+#  Doni-Doni Backend — Configuration principale
+# ═══════════════════════════════════════════════════════════
+
+server:
+  port: 8081
+  shutdown: graceful
+
+spring:
+  application:
+    name: doni-doni-backend
+
+  # ── Jackson ──────────────────────────────────────────────
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+  # ── Redis ────────────────────────────────────────────────
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: 5000ms
+
+  # ── Base de données (PostgreSQL) ─────────────────────────
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/donidoni}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  # ── JPA ──────────────────────────────────────────────────
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+
+  # ── Flyway ───────────────────────────────────────────────
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  # ── Security — OAuth2 Resource Server (JWT) ─────────────
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_SERVER_URL:http://localhost:8080}/realms/${KEYCLOAK_REALM:doni-doni}
+          jwk-set-uri: ${KEYCLOAK_SERVER_URL:http://localhost:8080}/realms/${KEYCLOAK_REALM:doni-doni}/protocol/openid-connect/certs
+
+# ── Keycloak Admin Client ──────────────────────────────────
+keycloak:
+  server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8080}
+  realm: ${KEYCLOAK_REALM:doni-doni}
+  client-id: ${KEYCLOAK_CLIENT_ID:doni-doni-backend}
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:YJzbjT3zoP6h24ObZDjdKkXpRyU1ZNUG}
+
+# ── Google OAuth2 ──────────────────────────────────────────
+google:
+  client-id: ${GOOGLE_CLIENT_ID:your-google-client-id.apps.googleusercontent.com}
+
+# ── OTP Configuration ─────────────────────────────────────
+otp:
+  length: 6
+  ttl-seconds: 300
+  max-attempts: 5
+  rate-limit-max-send: 3
+  rate-limit-window-seconds: 300
+
+# ── MinIO Configuration ───────────────────────────────────
+minio:
+  url: ${MINIO_URL:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-name: ${MINIO_BUCKET_NAME:donidoni-files}
+
+# ── Actuator ───────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# ── OpenAPI / Swagger ──────────────────────────────────────
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+
+# ── Logging ────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    com.donidoni: INFO
+    org.keycloak: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} — %msg%n"

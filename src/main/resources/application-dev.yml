@@ -1,0 +1,27 @@
+# ═══════════════════════════════════════════════════════════
+#  Doni-Doni Backend — Profil DEV
+# ═══════════════════════════════════════════════════════════
+# Active : LogSmsService (OTP loggé en console au lieu d'envoyer un SMS)
+
+spring:
+  # Redis local (docker-compose)
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  # JPA en dev : afficher les requêtes SQL
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# ── Logging verbeux ────────────────────────────────────────
+logging:
+  level:
+    com.donidoni: DEBUG
+    org.keycloak: INFO
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

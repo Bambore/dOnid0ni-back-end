@@ -1,0 +1,18 @@
+[
+  {
+    "name": "ADMIN",
+    "description": "Accès complet au backoffice Doni-Doni"
+  },
+  {
+    "name": "utilisateur-read",
+    "description": "Lecture des utilisateurs du backoffice"
+  },
+  {
+    "name": "utilisateur-write",
+    "description": "Création, modification et suppression des utilisateurs du backoffice"
+  },
+  {
+    "name": "profil-write",
+    "description": "Création, modification et suppression des profils du backoffice"
+  }
+]
