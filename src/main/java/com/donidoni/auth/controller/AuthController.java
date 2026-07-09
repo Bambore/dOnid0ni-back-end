@@ -111,6 +111,34 @@ public class AuthController {
     }
 
     /**
+     * Crée un compte pour un nouveau numéro de téléphone et envoie un OTP.
+     *
+     * @param request contenant le numéro, le prénom et le nom
+     * @return la confirmation d'envoi avec le TTL de l'OTP
+     */
+    @PostMapping("/register-phone")
+    @Operation(
+            summary = "S'inscrire avec un numéro de téléphone",
+            description = "Crée un compte Keycloak sans envoyer d'OTP immédiatement")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Compte créé avec succès"),
+            @ApiResponse(responseCode = "400", description = "Numéro de téléphone invalide"),
+            @ApiResponse(responseCode = "409", description = "Le numéro est déjà utilisé"),
+            @ApiResponse(responseCode = "429", description = "Rate limit atteint")
+    })
+    public ResponseEntity<OtpResponse> registerPhone(
+            @Valid @RequestBody final com.donidoni.auth.dto.request.RegisterPhoneRequest request) {
+
+        log.info("[AUTH] Demande d'inscription OTP");
+        final OtpResponse response =
+                authenticationService.registerPhoneUser(
+                        request.phoneNumber(),
+                        request.firstName(),
+                        request.lastName());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Vérifie un code OTP et authentifie l'utilisateur.
      *
      * <p>Si le code est valide, l'utilisateur est créé ou récupéré

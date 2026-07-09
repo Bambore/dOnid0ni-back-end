@@ -137,11 +137,15 @@ public class KeycloakUserService {
      * Crée un utilisateur Keycloak pour une connexion par téléphone.
      *
      * @param phoneNumber numéro de téléphone au format E.164
+     * @param firstName   prénom de l'utilisateur
+     * @param lastName    nom de famille de l'utilisateur
      * @return l'identifiant Keycloak du nouvel utilisateur
      */
-    public String createPhoneUser(final String phoneNumber) {
+    public String createPhoneUser(final String phoneNumber, final String firstName, final String lastName) {
         final UserRepresentation user = new UserRepresentation();
         user.setUsername(phoneNumber);
+        user.setFirstName(firstName);
+        user.setLastName(lastName);
         user.setEnabled(true);
         user.setAttributes(Map.of("phone", List.of(phoneNumber)));
 

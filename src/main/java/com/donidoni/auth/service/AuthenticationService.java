@@ -125,17 +125,51 @@ public class AuthenticationService {
     // ═══════════════════════════════════════════════════════════
 
     /**
-     * Envoie un code OTP par SMS au numéro spécifié.
+     * Envoie un code OTP par SMS au numéro spécifié uniquement si l'utilisateur existe.
      *
      * @param phoneNumber numéro de téléphone au format E.164
      * @return la réponse indiquant le succès de l'envoi et le TTL
      */
     public OtpResponse sendOtp(final String phoneNumber) {
+        // Vérifier si l'utilisateur existe avant d'envoyer l'OTP
+        final Optional<UserRepresentation> existingUser = keycloakUserService.findByPhone(phoneNumber);
+        if (existingUser.isEmpty()) {
+            log.warn("[AUTH] Demande OTP pour un numéro inexistant : {}", phoneNumber);
+            throw new com.donidoni.auth.exception.AuthException(com.donidoni.auth.exception.ErrorCode.USER_NOT_FOUND, "Ce numéro de téléphone n'est associé à aucun compte");
+        }
+
         otpService.generateAndSend(phoneNumber);
         return new OtpResponse(
                 true,
                 otpProperties.getTtlSeconds(),
                 "Code OTP envoyé avec succès");
+    }
+
+    /**
+     * Crée un nouvel utilisateur et envoie un code OTP.
+     *
+     * @param phoneNumber numéro de téléphone
+     * @param firstName prénom
+     * @param lastName nom
+     * @return la réponse indiquant le succès de l'envoi et le TTL
+     */
+    public OtpResponse registerPhoneUser(final String phoneNumber, final String firstName, final String lastName) {
+        // 1. Vérifier que l'utilisateur n'existe pas déjà
+        final Optional<UserRepresentation> existingUser = keycloakUserService.findByPhone(phoneNumber);
+        if (existingUser.isPresent()) {
+            log.warn("[AUTH] Inscription impossible, numéro déjà utilisé : {}", phoneNumber);
+            throw new com.donidoni.auth.exception.AuthException(com.donidoni.auth.exception.ErrorCode.USER_CREATION_FAILED, "Ce numéro de téléphone est déjà utilisé");
+        }
+
+        // 2. Créer l'utilisateur dans Keycloak
+        keycloakUserService.createPhoneUser(phoneNumber, firstName, lastName);
+
+        // 3. Ne pas envoyer d'OTP à la création
+        // otpService.generateAndSend(phoneNumber);
+        return new OtpResponse(
+                true,
+                0,
+                "Compte créé avec succès");
     }
 
     /**
@@ -162,17 +196,17 @@ public class AuthenticationService {
         // 1. Valider l'OTP
         otpService.verify(phoneNumber, otpCode);
 
-        // 2. Chercher ou créer l'utilisateur Keycloak
+        // 2. Chercher l'utilisateur Keycloak (qui doit exister)
         final Optional<UserRepresentation> existingUser =
                 keycloakUserService.findByPhone(phoneNumber);
 
         final String userId;
         if (existingUser.isPresent()) {
             userId = existingUser.get().getId();
-            log.info("[AUTH] Utilisateur téléphone existant : {}", phoneNumber);
+            log.info("[AUTH] Utilisateur téléphone existant authentifié : {}", phoneNumber);
         } else {
-            userId = keycloakUserService.createPhoneUser(phoneNumber);
-            log.info("[AUTH] Nouvel utilisateur téléphone créé : {}", phoneNumber);
+            log.error("[AUTH] Incohérence : Utilisateur non trouvé après OTP valide : {}", phoneNumber);
+            throw new com.donidoni.auth.exception.AuthException(com.donidoni.auth.exception.ErrorCode.USER_NOT_FOUND, "Utilisateur introuvable");
         }
 
         // 3. Obtenir un token Keycloak
