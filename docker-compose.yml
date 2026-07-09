@@ -93,6 +93,7 @@ services:
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       KEYCLOAK_REALM: doni-doni
       KEYCLOAK_CLIENT_ID: doni-doni-backend
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-YJzbjT3zoP6h24ObZDjdKkXpRyU1ZNUG}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-app:5432/donidoni
