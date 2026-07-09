@@ -56,12 +56,20 @@ public final class KeycloakRolesInitializer implements ApplicationRunner {
      */
     @Override
     public void run(final ApplicationArguments args) {
-        log.info("==> Synchronisation des rôles applicatifs Keycloak ({} rôles)...",
-            AppRoles.CORE_ROLES.size());
-        final RealmResource realmResource = keycloak.realm(properties.getRealm());
-        final RolesResource rolesResource = realmResource.roles();
-        AppRoles.CORE_ROLES.forEach(roleDef -> synchronizeRole(rolesResource, roleDef));
-        log.info("==> Synchronisation terminée.");
+        log.info("[ROLES] Début de la synchronisation des rôles métier ({} rôles trouvés)", AppRoles.CORE_ROLES.size());
+        
+        try {
+            RealmResource realmResource = keycloak.realm(properties.getRealm());
+            RolesResource rolesResource = realmResource.roles();
+
+            AppRoles.CORE_ROLES.forEach(role -> synchronizeRole(rolesResource, role));
+
+            log.info("[ROLES] Synchronisation terminée avec succès");
+        } catch (jakarta.ws.rs.ForbiddenException e) {
+            log.error("[ROLES] ERREUR DE PERMISSION (403 Forbidden) : Le client '{}' n'a pas les droits nécessaires (ex: realm-admin) pour synchroniser les rôles dans Keycloak. La synchronisation est ignorée.", properties.getClientId());
+        } catch (Exception e) {
+            log.error("[ROLES] Erreur inattendue lors de la synchronisation des rôles: {}", e.getMessage());
+        }
     }
 
     /**
