@@ -2,33 +2,31 @@
 #  Doni-Doni Backend — Profil PROD
 # ═══════════════════════════════════════════════════════════
 # Active : TwilioSmsService (envoi SMS réel via Twilio)
+#
+# Le profil s'active par la variable d'environnement
+# SPRING_PROFILES_ACTIVE=prod : le déclarer ici serait rejeté au
+# démarrage (« invalid in a profile specific resource »).
+#
+# La base de données et Redis sont configurés dans application.yml à
+# partir des variables SPRING_DATASOURCE_* et SPRING_DATA_REDIS_* ;
+# ce fichier ne redéfinit que ce qui est propre à la production.
 
 spring:
-  profiles:
-    active: prod
-
-  # Redis cluster/sentinel en production
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-
-  # Base de données prod
-  datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
-
-  # JPA prod
+  # JPA prod : aucune requête SQL journalisée
   jpa:
     show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
 
 # ── Twilio SMS ─────────────────────────────────────────────
+# Obligatoires en production : sans elles, l'envoi d'OTP est impossible
+# et l'application refuse de démarrer plutôt que de laisser croire que
+# les SMS partent.
 twilio:
-  account-sid: ${TWILIO_ACCOUNT_SID}
-  auth-token: ${TWILIO_AUTH_TOKEN}
-  from-number: ${TWILIO_FROM_NUMBER}
+  account-sid: ${TWILIO_ACCOUNT_SID:}
+  auth-token: ${TWILIO_AUTH_TOKEN:}
+  from-number: ${TWILIO_FROM_NUMBER:}
 
 # ── OTP plus restrictif en prod ────────────────────────────
 otp:
@@ -39,8 +37,12 @@ otp:
   rate-limit-window-seconds: 600
 
 # ── Logging structuré ──────────────────────────────────────
+# Aucun logger SQL : les paramètres liés contiennent des numéros de
+# téléphone et des adresses e-mail.
 logging:
   level:
     root: WARN
     com.donidoni: INFO
     org.keycloak: WARN
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN

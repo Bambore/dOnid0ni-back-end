@@ -1,0 +1,23 @@
+# Contexte de build minimal : seuls pom.xml, .mvn, mvnw et src sont copiés
+# par le Dockerfile. Tout le reste alourdit le transfert vers le démon Docker.
+
+target/
+.git/
+.github/
+.idea/
+.vscode/
+.mvn/wrapper/maven-wrapper.jar
+
+*.iml
+*.iws
+*.ipr
+*.log
+
+.env
+*.env
+!.env.example
+
+.DS_Store
+README.md
+*.postman_collection.json
+docker-compose.yml

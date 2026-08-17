@@ -4,19 +4,101 @@ on:
   push:
     branches: [ main ]
 
+# Deux poussées rapprochées ne doivent pas déployer en parallèle sur le
+# même serveur ; la plus récente attend que la précédente se termine.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  # ── 1. Barrière de qualité ────────────────────────────────────────────
+  # Rien n'est déployé si la branche ne compile pas.
+  build:
+    name: Compilation
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to Remote Server
+      - uses: actions/checkout@v4
+
+      - name: Installer le JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Compiler et tester
+        run: ./mvnw --batch-mode --no-transfer-progress verify
+
+  # ── 2. Mise en ligne ──────────────────────────────────────────────────
+  deploy:
+    name: Déploiement
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Déployer sur le serveur
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 206.189.4.226
-          username: root
-          password: ${{ secrets.SERVER_PASSWORD }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          command_timeout: 20m
           script: |
+            set -euo pipefail
             cd /opt/doni-doni-backend
-            git pull origin main
-            docker compose down
-            docker compose up -d --build
+
+            # Le .env du serveur porte les secrets ; il n'est pas versionné.
+            test -f .env || { echo "Fichier .env absent sur le serveur"; exit 1; }
+
+            # Mémorise la révision en ligne pour pouvoir y revenir.
+            REVISION_PRECEDENTE=$(git rev-parse HEAD)
+            echo "Révision actuelle : $REVISION_PRECEDENTE"
+
+            git fetch --prune origin main
+            git reset --hard origin/main
+
+            # L'image est construite AVANT toute interruption de service :
+            # un échec de build laisse l'ancienne version en ligne.
+            docker compose build doni-doni-api
+
+            # `up -d` ne recrée que les services dont la définition a changé,
+            # il n'y a donc pas de `down` préalable.
+            docker compose up -d --remove-orphans
+
+            # Attend que la sonde de santé du conteneur passe à « healthy ».
+            echo "Attente de la disponibilité de l'API..."
+            for tentative in $(seq 1 40); do
+              ETAT=$(docker inspect --format '{{.State.Health.Status}}' doni-doni-api 2>/dev/null || echo "absent")
+              if [ "$ETAT" = "healthy" ]; then
+                echo "API disponible."
+                exit 0
+              fi
+              if [ "$ETAT" = "absent" ]; then
+                echo "Conteneur introuvable."
+                break
+              fi
+              sleep 10
+            done
+
+            # Retour à la version précédente : le déploiement est en échec.
+            echo "L'API n'est pas devenue disponible — retour arrière."
+            docker compose logs --tail 80 doni-doni-api || true
+            git reset --hard "$REVISION_PRECEDENTE"
+            docker compose build doni-doni-api
+            docker compose up -d --remove-orphans
+            exit 1
+
+      - name: Vérifier la réponse publique
+        run: |
+          for tentative in $(seq 1 12); do
+            if curl -fsS --max-time 10 "${{ secrets.HEALTHCHECK_URL }}" | grep -q '"status":"UP"'; then
+              echo "Point de santé public accessible."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Le point de santé public ne répond pas."
+          exit 1

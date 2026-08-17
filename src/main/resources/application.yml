@@ -61,7 +61,9 @@ keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8080}
   realm: ${KEYCLOAK_REALM:doni-doni}
   client-id: ${KEYCLOAK_CLIENT_ID:doni-doni-backend}
-  client-secret: ${KEYCLOAK_CLIENT_SECRET:YJzbjT3zoP6h24ObZDjdKkXpRyU1ZNUG}
+  # Jamais de valeur par défaut ici : un secret versionné est un secret public.
+  # Fourni par la variable d'environnement (voir .env.example).
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:}
 
 # ── Google OAuth2 ──────────────────────────────────────────
 google:
