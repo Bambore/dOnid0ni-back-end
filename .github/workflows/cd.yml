@@ -38,6 +38,25 @@ jobs:
     environment: production
 
     steps:
+      - name: Vérifier les secrets requis
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+        run: |
+          manquants=""
+          for nom in SERVER_HOST SERVER_USER SERVER_SSH_KEY HEALTHCHECK_URL; do
+            eval "valeur=\${$nom}"
+            [ -n "$valeur" ] || manquants="$manquants $nom"
+          done
+          if [ -n "$manquants" ]; then
+            echo "Secrets absents du dépôt :$manquants"
+            echo "À créer dans Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          echo "Les quatre secrets sont présents."
+
       - name: Déployer sur le serveur
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -47,7 +66,7 @@ jobs:
           script_stop: true
           command_timeout: 20m
           script: |
-            set -euo pipefail
+            set -eu
             cd /opt/doni-doni-backend
 
             # Le .env du serveur porte les secrets ; il n'est pas versionné.
@@ -72,14 +91,17 @@ jobs:
             echo "Attente de la disponibilité de l'API..."
             for tentative in $(seq 1 40); do
               ETAT=$(docker inspect --format '{{.State.Health.Status}}' doni-doni-api 2>/dev/null || echo "absent")
-              if [ "$ETAT" = "healthy" ]; then
-                echo "API disponible."
-                exit 0
-              fi
-              if [ "$ETAT" = "absent" ]; then
-                echo "Conteneur introuvable."
-                break
-              fi
+              case "$ETAT" in
+                healthy)
+                  echo "API disponible."
+                  exit 0
+                  ;;
+                absent|"<no value>"|"")
+                  echo "Conteneur absent ou sans sonde de santé (état : $ETAT)."
+                  break
+                  ;;
+              esac
+              echo "  état : $ETAT (tentative $tentative/40)"
               sleep 10
             done
 
