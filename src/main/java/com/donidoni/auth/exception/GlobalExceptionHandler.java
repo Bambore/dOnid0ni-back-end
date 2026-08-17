@@ -2,6 +2,7 @@ package com.donidoni.auth.exception;
 
 import jakarta.validation.ConstraintViolationException;
 import com.donidoni.auth.crud.exception.ResourceNotFoundException;
+import com.donidoni.auth.metier.exception.MetierException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -38,6 +39,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(OtpException.class)
     public ResponseEntity<ErrorResponse> handleOtpException(final OtpException ex) {
         log.warn("[OTP] {} — {}", ex.getErrorCode().getCode(), ex.getMessage());
+        return ResponseEntity
+                .status(ex.getErrorCode().getHttpStatus())
+                .body(ErrorResponse.of(ex.getErrorCode(), ex.getMessage()));
+    }
+
+    /**
+     * Gère les violations de règles métier (groupages, tontines, sondages,
+     * commandes et paiements).
+     */
+    @ExceptionHandler(MetierException.class)
+    public ResponseEntity<ErrorResponse> handleMetierException(final MetierException ex) {
+        log.warn("[METIER] {} — {}", ex.getErrorCode().getCode(), ex.getMessage());
         return ResponseEntity
                 .status(ex.getErrorCode().getHttpStatus())
                 .body(ErrorResponse.of(ex.getErrorCode(), ex.getMessage()));

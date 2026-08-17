@@ -8,6 +8,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -47,6 +48,56 @@ public class SecurityConfig {
     };
 
     /**
+     * Ressources consultables sans compte.
+     *
+     * <p>Le mobile propose un mode invité : le catalogue, les boutiques, les
+     * groupages, les tontines et les sondages sont donc lisibles sans jeton.
+     * Toute action (adhésion, vote, commande) reste authentifiée grâce aux
+     * annotations {@code @PreAuthorize} portées par les méthodes concernées.</p>
+     */
+    private static final String[] CATALOGUE_PUBLIC = {
+            "/api/pays/**",
+            "/api/categories/**",
+            "/api/boutiques/**",
+            "/api/articles/**",
+            "/api/groupages/**",
+            "/api/tontines/**",
+            "/api/sondages/**"
+    };
+
+    /**
+     * Lectures nominatives : accessibles au porteur du jeton, pour ses propres
+     * données uniquement — le filtrage par utilisateur est fait dans les services.
+     */
+    private static final String[] PERSONNEL = {
+            "/api/profil/**",
+            "/api/favoris/**",
+            "/api/commandes/mes",
+            "/api/commandes/mes/*",
+            "/api/paiements/mes",
+            "/api/notifications/mes",
+            "/api/notifications/non-lues/compteur",
+            "/api/cadeaux/mes",
+            "/api/groupages/mes",
+            "/api/tontines/mes",
+            "/api/tontines/*/mes-cotisations",
+            "/api/sondages/*/mon-vote"
+    };
+
+    /** Ressources dont la création et la modification sont réservées au back-office. */
+    private static final String[] CATALOGUE_ADMIN = {
+            "/api/pays/**",
+            "/api/categories/**",
+            "/api/boutiques/**",
+            "/api/articles/**",
+            "/api/groupages/**",
+            "/api/tontines/**",
+            "/api/sondages/**",
+            "/api/notifications/**",
+            "/api/cadeaux/**"
+    };
+
+    /**
      * Configure la chaîne de filtres de sécurité.
      *
      * @param http le builder de configuration HTTP
@@ -68,6 +119,58 @@ public class SecurityConfig {
                 // Autorisation des endpoints
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+
+                        // Recherche avancée du catalogue : lecture exposée en POST.
+                        // Volontairement limitée aux ressources publiques — les
+                        // recherches sur les clients et les paiements restent protégées.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/pays/search",
+                                "/api/categories/search",
+                                "/api/boutiques/search",
+                                "/api/articles/search",
+                                "/api/groupages/search",
+                                "/api/tontines/search",
+                                "/api/sondages/search").permitAll()
+
+                        // Actions et données personnelles de l'utilisateur connecté.
+                        // Déclarées avant les règles d'administration, qui couvrent
+                        // les mêmes préfixes d'URL.
+                        .requestMatchers(HttpMethod.GET, PERSONNEL).authenticated()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/groupages/*/participer",
+                                "/api/tontines/*/participer",
+                                "/api/sondages/*/voter",
+                                "/api/notifications/toutes-lues",
+                                "/api/cadeaux/*/utiliser",
+                                "/api/commandes/*/annuler").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/notifications/*/lue").authenticated()
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/groupages/*/participer",
+                                "/api/notifications/mes",
+                                "/api/notifications/mes/*").authenticated()
+
+                        // Consultation du catalogue en mode invité
+                        .requestMatchers(HttpMethod.GET, CATALOGUE_PUBLIC).permitAll()
+
+                        // Administration du contenu depuis le back-office
+                        .requestMatchers(HttpMethod.POST, CATALOGUE_ADMIN).hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, CATALOGUE_ADMIN).hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, CATALOGUE_ADMIN).hasRole("ADMIN")
+
+                        // Les endpoints CRUD génériques des ressources nominatives
+                        // exposeraient les données de tous les clients : réservés au
+                        // back-office. Les clients passent par les routes « /mes ».
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/commandes", "/api/commandes/*",
+                                "/api/notifications", "/api/notifications/*",
+                                "/api/cadeaux", "/api/cadeaux/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/commandes/search").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/commandes/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/commandes/*").hasRole("ADMIN")
+
                         .anyRequest().authenticated())
 
                 // Validation JWT via Keycloak JWK
