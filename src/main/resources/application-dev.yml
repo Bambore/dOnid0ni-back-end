@@ -24,4 +24,5 @@ logging:
     org.keycloak: INFO
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    # Pas de TRACE sur le binder : il journalise les paramètres liés,
+    # donc les numéros de téléphone et les adresses e-mail.
