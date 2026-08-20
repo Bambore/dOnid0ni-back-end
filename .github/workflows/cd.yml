@@ -68,53 +68,18 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script_stop: true
           command_timeout: 20m
+          # Le bloc ci-dessous est volontairement minimal : appleboy/ssh-action
+          # le transmet au shell distant via `bash -c`, et ce transport altère
+          # les constructions multilignes élaborées. Toute la logique de
+          # déploiement vit dans scripts/deploiement.sh, que bash lit comme un
+          # fichier local — donc à l'abri de cette déformation.
           script: |
             set -eu
             cd /opt/doni-doni-backend
-
-            # Le .env du serveur porte les secrets ; il n'est pas versionné.
-            test -f .env || { echo "Fichier .env absent sur le serveur"; exit 1; }
-
-            # Mémorise la révision en ligne pour pouvoir y revenir.
-            REVISION_PRECEDENTE=$(git rev-parse HEAD)
-            echo "Révision actuelle : $REVISION_PRECEDENTE"
-
+            REVISION=$(git rev-parse HEAD)
             git fetch --prune origin main
             git reset --hard origin/main
-
-            # L'image est construite AVANT toute interruption de service :
-            # un échec de build laisse l'ancienne version en ligne.
-            docker compose build doni-doni-api
-
-            # `up -d` ne recrée que les services dont la définition a changé,
-            # il n'y a donc pas de `down` préalable.
-            docker compose up -d --remove-orphans
-
-            # Attend que la sonde de santé du conteneur passe à « healthy ».
-            echo "Attente de la disponibilité de l'API..."
-            for tentative in $(seq 1 40); do
-              ETAT=$(docker inspect --format '{{.State.Health.Status}}' doni-doni-api 2>/dev/null || echo "absent")
-              case "$ETAT" in
-                healthy)
-                  echo "API disponible."
-                  exit 0
-                  ;;
-                absent|"<no value>"|"")
-                  echo "Conteneur absent ou sans sonde de santé (état : $ETAT)."
-                  break
-                  ;;
-              esac
-              echo "  état : $ETAT (tentative $tentative/40)"
-              sleep 10
-            done
-
-            # Retour à la version précédente : le déploiement est en échec.
-            echo "L'API n'est pas devenue disponible — retour arrière."
-            docker compose logs --tail 80 doni-doni-api || true
-            git reset --hard "$REVISION_PRECEDENTE"
-            docker compose build doni-doni-api
-            docker compose up -d --remove-orphans
-            exit 1
+            bash scripts/deploiement.sh "$REVISION"
 
       - name: Vérifier la réponse publique
         run: |
