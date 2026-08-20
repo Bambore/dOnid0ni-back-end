@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
-import javax.net.ssl.*;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -13,14 +12,20 @@ import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
 /**
- * Implémentation du service SMS utilisant l'API LeSmsBus (gov.bf.utils logic).
+ * Implémentation du service SMS utilisant l'API LeSmsBus.
+ *
+ * <p>Les appels sortants s'appuient sur la validation TLS par défaut de la JVM.
+ * Ne jamais y substituer un {@code TrustManager} permissif ni un
+ * {@code HostnameVerifier} qui accepte tout : les points d'entrée
+ * {@code HttpsURLConnection.setDefault*} sont globaux à la JVM et
+ * affaibliraient <em>tous</em> les appels HTTPS de l'application, dont la
+ * vérification des jetons Google. Le certificat de la passerelle est émis par
+ * une autorité publique (Sectigo) et se valide sans configuration.</p>
  */
 @Slf4j
 @Primary
@@ -48,19 +53,6 @@ public class LesmsbusSmsService implements SmsService {
         HttpURLConnection ucon = null;
         try {
             URL url = null;
-            if (URL.contains("https")) {
-                TrustManager[] tms = { new SmsbusTrustManager() };
-                SSLContext sslctx2 = SSLContext.getInstance("SSL");
-                sslctx2.init(null, tms, null);
-                HttpsURLConnection.setDefaultSSLSocketFactory(sslctx2.getSocketFactory());
-
-                HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
-                    @Override
-                    public boolean verify(String string, SSLSession ssls) {
-                        return true;
-                    }
-                });
-            }
 
             if (method == null || method.trim().equalsIgnoreCase("GET")) {
                 String paramStr = null;
@@ -138,21 +130,6 @@ public class LesmsbusSmsService implements SmsService {
                 }
             } catch (Exception e) {
             }
-        }
-    }
-
-    static class SmsbusTrustManager implements javax.net.ssl.TrustManager, javax.net.ssl.X509TrustManager {
-        @Override
-        public void checkClientTrusted(X509Certificate[] xcs, String string) throws CertificateException {
-        }
-
-        @Override
-        public void checkServerTrusted(X509Certificate[] xcs, String string) throws CertificateException {
-        }
-
-        @Override
-        public X509Certificate[] getAcceptedIssuers() {
-            return null;
         }
     }
 
