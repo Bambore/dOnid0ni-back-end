@@ -82,13 +82,27 @@ jobs:
             bash scripts/deploiement.sh "$REVISION"
 
       - name: Vérifier la réponse publique
+        env:
+          URL: ${{ secrets.HEALTHCHECK_URL }}
         run: |
           for tentative in $(seq 1 12); do
-            if curl -fsS --max-time 10 "${{ secrets.HEALTHCHECK_URL }}" | grep -q '"status":"UP"'; then
+            if curl -fsS --max-time 10 "$URL" | grep -q '"status":"UP"'; then
               echo "Point de santé public accessible."
               exit 0
             fi
             sleep 10
           done
+
+          # L'URL est un secret, donc masquée dans ce journal. Ces indices
+          # dérivés suffisent à identifier une erreur de saisie sans jamais
+          # révéler la valeur : confusion https/http, port oublié, espace
+          # parasite en fin de chaîne.
           echo "Le point de santé public ne répond pas."
+          echo "Diagnostic de HEALTHCHECK_URL (valeur masquée) :"
+          echo "  longueur    : ${#URL} caractères"
+          echo "  protocole   : ${URL%%:*}"
+          echo "  port        : $(printf '%s' "$URL" | sed -n 's|.*://[^/:]*:\([0-9]*\).*|\1|p')"
+          echo "  chemin      : /$(printf '%s' "$URL" | cut -d/ -f4-)"
+          echo "  réponse curl :"
+          curl -sS --max-time 10 -o /dev/null -w "    code HTTP %{http_code} en %{time_total}s\n" "$URL" || true
           exit 1
