@@ -3,6 +3,9 @@ name: CD Pipeline
 on:
   push:
     branches: [ main ]
+  # Redéploiement à la demande, sans avoir à pousser du code :
+  # onglet Actions > CD Pipeline > « Run workflow ».
+  workflow_dispatch:
 
 # Deux poussées rapprochées ne doivent pas déployer en parallèle sur le
 # même serveur ; la plus récente attend que la précédente se termine.
