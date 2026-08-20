@@ -83,8 +83,15 @@ jobs:
 
       - name: Vérifier la réponse publique
         env:
-          URL: ${{ secrets.HEALTHCHECK_URL }}
+          URL_BRUTE: ${{ secrets.HEALTHCHECK_URL }}
         run: |
+          # Un secret collé depuis un presse-papier embarque volontiers une
+          # espace ou un saut de ligne parasite. curl rejette alors l'URL
+          # (« Malformed input to a URL function ») sans rien laisser voir,
+          # puisque la valeur est masquée dans le journal. Une URL ne contient
+          # jamais d'espace : on les retire toutes.
+          URL=$(printf '%s' "$URL_BRUTE" | tr -d '[:space:]')
+
           for tentative in $(seq 1 12); do
             if curl -fsS --max-time 10 "$URL" | grep -q '"status":"UP"'; then
               echo "Point de santé public accessible."
@@ -99,7 +106,7 @@ jobs:
           # parasite en fin de chaîne.
           echo "Le point de santé public ne répond pas."
           echo "Diagnostic de HEALTHCHECK_URL (valeur masquée) :"
-          echo "  longueur    : ${#URL} caractères"
+          echo "  longueur    : ${#URL} caractères (${#URL_BRUTE} avant nettoyage)"
           echo "  protocole   : ${URL%%:*}"
           echo "  port        : $(printf '%s' "$URL" | sed -n 's|.*://[^/:]*:\([0-9]*\).*|\1|p')"
           echo "  chemin      : /$(printf '%s' "$URL" | cut -d/ -f4-)"
